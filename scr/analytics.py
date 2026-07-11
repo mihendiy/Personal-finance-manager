@@ -110,3 +110,52 @@ def forecast_balance(transactions, limits, year, month):
 📊 Остаток бюджета: {remaining:.2f} руб.
 📈 Итоговый баланс (с учётом доходов): {balance:.2f} руб.
 """
+
+
+# analytics.py - ДОБАВИТЬ В КОНЕЦ ФАЙЛА
+
+def close_month(transactions, limits, year, month):
+    """
+    Закрыть текущий месяц:
+    - рассчитать расходы за месяц
+    - перенести их как лимит на следующий месяц
+    """
+    # 1. Считаем расходы за текущий месяц
+    total_expense = 0
+    for t in transactions:
+        if t.get("year") == year and t.get("month") == month and t.get("type") == "расход":
+            total_expense += t.get("amount", 0)
+
+    # 2. Если расходов нет — не закрываем
+    if total_expense == 0:
+        return "⚠️ Нет расходов за этот месяц. Закрытие невозможно."
+
+    # 3. Определяем следующий месяц
+    if month == 12:
+        next_year = year + 1
+        next_month = 1
+    else:
+        next_year = year
+        next_month = month + 1
+
+    key = (next_year, next_month)
+
+    # 4. Устанавливаем лимит на следующий месяц
+    if key not in limits:
+        limits[key] = {"total": None, "categories": {}, "is_manual": False}
+    limits[key]["total"] = total_expense
+    limits[key]["is_manual"] = False
+
+    # 5. Сохраняем
+    from storage import save_limits
+    save_limits(limits)
+
+    # 6. Возвращаем отчёт
+    return f"""
+✅ МЕСЯЦ {month}.{year} ЗАКРЫТ!
+
+📊 Расходы за месяц: {total_expense:.2f} руб.
+🔄 Лимит на {next_month}.{next_year} установлен: {total_expense:.2f} руб.
+
+💡 Совет: переключитесь на следующий месяц, чтобы продолжить работу.
+"""

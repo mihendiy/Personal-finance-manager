@@ -1,4 +1,4 @@
-# main.py - главное меню и связь модулей
+# main.py - главный модуль с меню и навигацией
 
 from storage import (
     load_transactions, save_transactions,
@@ -10,7 +10,8 @@ from analytics import (
     get_balance,
     get_expenses_by_category,
     build_text_chart,
-    forecast_balance
+    forecast_balance,
+    close_month
 )
 
 # ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
@@ -21,7 +22,7 @@ current_year = 2026
 current_month = 1
 
 
-# ---------- ВЫБОР ГОДА И МЕСЯЦА ----------
+# ---------- ВЫБОР ГОДА ----------
 
 def show_years():
     print("\n" + "=" * 40)
@@ -30,18 +31,6 @@ def show_years():
     print("1. 2026")
     print("2. 2027")
     print("0. Выход")
-    print("=" * 40)
-
-
-def show_months():
-    print("\n" + "=" * 40)
-    print(f"ВЫБОР МЕСЯЦА ({current_year})")
-    print("=" * 40)
-    print("1.  Январь    2.  Февраль    3.  Март")
-    print("4.  Апрель    5.  Май        6.  Июнь")
-    print("7.  Июль      8.  Август     9.  Сентябрь")
-    print("10. Октябрь   11. Ноябрь     12. Декабрь")
-    print("0. Назад")
     print("=" * 40)
 
 
@@ -63,6 +52,20 @@ def choose_year():
             exit()
         else:
             print("❌ Неверный ввод.")
+
+
+# ---------- ВЫБОР МЕСЯЦА ----------
+
+def show_months():
+    print("\n" + "=" * 40)
+    print(f"ВЫБОР МЕСЯЦА ({current_year})")
+    print("=" * 40)
+    print("1.  Январь    2.  Февраль    3.  Март")
+    print("4.  Апрель    5.  Май        6.  Июнь")
+    print("7.  Июль      8.  Август     9.  Сентябрь")
+    print("10. Октябрь   11. Ноябрь     12. Декабрь")
+    print("0. Назад")
+    print("=" * 40)
 
 
 def choose_month():
@@ -96,6 +99,7 @@ def show_menu():
     print("7.  Добавить категорию")
     print("8.  Установить лимит на месяц")
     print("9.  Проверить лимиты")
+    print("10. Закрыть месяц (перенос лимита)")  # ← НОВЫЙ ПУНКТ
     print("0.  Назад к выбору месяца")
     print("=" * 50)
 
@@ -103,7 +107,7 @@ def show_menu():
 def work_with_month():
     while True:
         show_menu()
-        choice = input("Выберите действие (1-9) или 0: ")
+        choice = input("Выберите действие (1-10) или 0: ")
         if choice == "1":
             add_transaction()
         elif choice == "2":
@@ -122,6 +126,8 @@ def work_with_month():
             set_monthly_limit()
         elif choice == "9":
             check_limits()
+        elif choice == "10":  # ← НОВАЯ ОБРАБОТКА
+            close_current_month()
         elif choice == "0":
             return
         else:
@@ -261,6 +267,32 @@ def check_limits():
         print("🟡 Внимание! Лимит почти исчерпан.")
     else:
         print("🟢 Лимит в норме.")
+
+
+# ---------- НОВАЯ ФУНКЦИЯ: ЗАКРЫТИЕ МЕСЯЦА ----------
+
+def close_current_month():
+    """Закрыть текущий месяц и перенести лимит"""
+    global limits
+    print("\n" + "=" * 50)
+    print("ЗАКРЫТИЕ МЕСЯЦА")
+    print("=" * 50)
+
+    # Проверяем, есть ли транзакции за этот месяц
+    count = sum(1 for t in transactions if t.get("year") == current_year and t.get("month") == current_month)
+    if count == 0:
+        print("⚠️ Нет транзакций за этот месяц. Закрытие невозможно.")
+        return
+
+    # Подтверждение от пользователя
+    confirm = input(f"Вы действительно хотите закрыть {current_month}.{current_year}? (да/нет): ").lower()
+    if confirm != "да":
+        print("❌ Закрытие отменено.")
+        return
+
+    # Вызываем функцию из analytics.py
+    result = close_month(transactions, limits, current_year, current_month)
+    print(result)
 
 
 # ---------- ЗАПУСК ----------
