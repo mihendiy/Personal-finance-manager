@@ -1,11 +1,9 @@
-# storage.py - работа с CSV-файлами
-
 import os
 import csv
 
 
 def get_data_path(filename):
-    """Вернуть правильный путь к файлу в папке data"""
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
     return os.path.join(project_root, "data", filename)
@@ -14,7 +12,7 @@ def get_data_path(filename):
 # ---------- ТРАНЗАКЦИИ ----------
 
 def load_transactions():
-    """Загрузить транзакции из CSV"""
+
     filename = get_data_path("transactions.csv")
     transactions = []
     try:
@@ -35,7 +33,7 @@ def load_transactions():
 
 
 def save_transactions(transactions):
-    """Сохранить транзакции в CSV"""
+
     filename = get_data_path("transactions.csv")
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
@@ -49,7 +47,7 @@ def save_transactions(transactions):
 # ---------- КАТЕГОРИИ ----------
 
 def load_categories():
-    """Загрузить категории из CSV"""
+
     filename = get_data_path("categories.csv")
     categories = {"доход": [], "расход": []}
     try:
@@ -69,7 +67,7 @@ def load_categories():
 
 
 def save_categories(categories):
-    """Сохранить категории в CSV"""
+
     filename = get_data_path("categories.csv")
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
@@ -84,7 +82,7 @@ def save_categories(categories):
 # ---------- ЛИМИТЫ ----------
 
 def load_limits():
-    """Загрузить лимиты из CSV"""
+
     filename = get_data_path("limits.csv")
     limits = {}
     try:

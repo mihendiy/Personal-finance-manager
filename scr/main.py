@@ -1,5 +1,3 @@
-# main.py - главный модуль с меню и навигацией
-
 from storage import (
     load_transactions, save_transactions,
     load_categories, save_categories,
@@ -11,7 +9,9 @@ from analytics import (
     get_expenses_by_category,
     build_text_chart,
     forecast_balance,
-    close_month
+    close_month,
+    check_category_limits,
+    get_category_limit
 )
 
 # ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
@@ -96,10 +96,11 @@ def show_menu():
     print("4.  Расходы по категориям")
     print("5.  Текстовая диаграмма")
     print("6.  Прогноз остатка")
-    print("7.  Добавить категорию")
-    print("8.  Установить лимит на месяц")
-    print("9.  Проверить лимиты")
-    print("10. Закрыть месяц (перенос лимита)")  # ← НОВЫЙ ПУНКТ
+    print("7.  Установить лимит на месяц")
+    print("8.  Проверить общий лимит")
+    print("9.  Закрыть месяц (перенос лимита)")
+    print("10. Установить лимит на категорию")
+    print("11. Проверить лимиты по категориям")
     print("0.  Назад к выбору месяца")
     print("=" * 50)
 
@@ -107,7 +108,7 @@ def show_menu():
 def work_with_month():
     while True:
         show_menu()
-        choice = input("Выберите действие (1-10) или 0: ")
+        choice = input("Выберите действие (1-11) или 0: ")
         if choice == "1":
             add_transaction()
         elif choice == "2":
@@ -121,13 +122,15 @@ def work_with_month():
         elif choice == "6":
             show_forecast()
         elif choice == "7":
-            add_new_category()
-        elif choice == "8":
             set_monthly_limit()
-        elif choice == "9":
+        elif choice == "8":
             check_limits()
-        elif choice == "10":  # ← НОВАЯ ОБРАБОТКА
+        elif choice == "9":
             close_current_month()
+        elif choice == "10":
+            set_category_limit()
+        elif choice == "11":
+            check_category_limits_wrapper()
         elif choice == "0":
             return
         else:
@@ -142,7 +145,9 @@ def add_transaction():
     print(f"📂 Доступные категории расходов: {', '.join(categories.get('расход', []))}")
     print(f"📂 Доступные категории доходов: {', '.join(categories.get('доход', []))}")
 
-    category = input("Введите категорию: ")
+    # Обработка пробелов и регистра
+    category = input("Введите категорию: ").strip().lower()
+
     while True:
         try:
             amount = float(input("Введите сумму (в рублях): "))
@@ -158,11 +163,11 @@ def add_transaction():
         print("Введите 'доход' или 'расход'")
         trans_type = input("Тип (доход/расход): ").lower()
 
+    # Если категория не найдена — добавляем автоматически
     if category not in categories.get(trans_type, []):
-        add = input(f"⚠️ Категория '{category}' не найдена. Добавить? (да/нет): ").lower()
-        if add == "да":
-            categories[trans_type].append(category)
-            save_categories(categories)
+        print(f"🆕 Добавлена новая категория: '{category}'")
+        categories[trans_type].append(category)
+        save_categories(categories)
 
     transaction = {
         "category": category,
@@ -215,21 +220,6 @@ def show_forecast():
     print(forecast_balance(transactions, limits, current_year, current_month))
 
 
-def add_new_category():
-    print("\n--- Добавление категории ---")
-    name = input("Введите название категории: ")
-    trans_type = input("Тип (доход/расход): ").lower()
-    while trans_type not in ["доход", "расход"]:
-        print("Введите 'доход' или 'расход'")
-        trans_type = input("Тип (доход/расход): ").lower()
-    if name in categories[trans_type]:
-        print("⚠️ Такая категория уже есть.")
-        return
-    categories[trans_type].append(name)
-    save_categories(categories)
-    print(f"✅ Категория '{name}' добавлена!")
-
-
 def set_monthly_limit():
     global limits
     key = (current_year, current_month)
@@ -269,8 +259,6 @@ def check_limits():
         print("🟢 Лимит в норме.")
 
 
-# ---------- НОВАЯ ФУНКЦИЯ: ЗАКРЫТИЕ МЕСЯЦА ----------
-
 def close_current_month():
     """Закрыть текущий месяц и перенести лимит"""
     global limits
@@ -278,21 +266,84 @@ def close_current_month():
     print("ЗАКРЫТИЕ МЕСЯЦА")
     print("=" * 50)
 
-    # Проверяем, есть ли транзакции за этот месяц
     count = sum(1 for t in transactions if t.get("year") == current_year and t.get("month") == current_month)
     if count == 0:
         print("⚠️ Нет транзакций за этот месяц. Закрытие невозможно.")
         return
 
-    # Подтверждение от пользователя
     confirm = input(f"Вы действительно хотите закрыть {current_month}.{current_year}? (да/нет): ").lower()
     if confirm != "да":
         print("❌ Закрытие отменено.")
         return
 
-    # Вызываем функцию из analytics.py
     result = close_month(transactions, limits, current_year, current_month)
     print(result)
+
+
+# ---------- ЛИМИТЫ ПО КАТЕГОРИЯМ ----------
+
+def set_category_limit():
+
+    global limits
+    key = (current_year, current_month)
+
+    print(f"\n--- Установка лимита на категорию ({current_month}.{current_year}) ---")
+
+    expense_categories = categories.get("расход", [])
+    if not expense_categories:
+        print("⚠️ Нет категорий расходов. Сначала добавьте категории через добавление транзакции.")
+        return
+
+    print(f"📂 Доступные категории расходов: {', '.join(expense_categories)}")
+
+    category = input("Введите название категории: ").strip().lower()
+
+    if category not in expense_categories:
+        print(f"⚠️ Категория '{category}' не найдена в списке расходов.")
+        return
+
+    current_limit = get_category_limit(limits, current_year, current_month, category)
+    if current_limit is not None:
+        print(f"📌 Текущий лимит на '{category}': {current_limit:.2f} руб.")
+
+    try:
+        limit = float(input(f"Введите лимит на категорию '{category}' (в рублях): "))
+        if limit < 0:
+            print("Лимит не может быть отрицательным.")
+            return
+    except ValueError:
+        print("Ошибка! Введите число.")
+        return
+
+    if key not in limits:
+        limits[key] = {"total": None, "categories": {}, "is_manual": False}
+    limits[key]["categories"][category] = limit
+
+    save_limits(limits)
+    print(f"✅ Лимит на категорию '{category}' установлен: {limit:.2f} руб.")
+
+
+def check_category_limits_wrapper():
+
+    print(f"\n--- Проверка лимитов по категориям за {current_month}.{current_year} ---")
+
+    warnings = check_category_limits(transactions, limits, current_year, current_month)
+
+    key = (current_year, current_month)
+    if key in limits and "categories" in limits[key]:
+        print("\n📋 Установленные лимиты по категориям:")
+        expenses = get_expenses_by_category(transactions, current_year, current_month)
+        for cat, limit in limits[key]["categories"].items():
+            spent = expenses.get(cat, 0)
+            status = "✅" if spent <= limit else "🔴"
+            print(f"   {status} {cat}: {spent:.2f} / {limit:.2f} руб.")
+
+    if not warnings:
+        print("\n✅ Все лимиты по категориям в норме.")
+    else:
+        print("\n⚠️ ОБНАРУЖЕНЫ ПРЕВЫШЕНИЯ:")
+        for w in warnings:
+            print(w)
 
 
 # ---------- ЗАПУСК ----------

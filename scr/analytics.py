@@ -1,17 +1,11 @@
-# analytics.py - расчёты, аналитика, скользящий бюджет
-
 def calculate_rolling_limit(transactions, limits, year, month):
-    """
-    Рассчитать лимит на месяц по принципу скользящего бюджета.
-    """
+    """Рассчитать лимит на месяц по принципу скользящего бюджета."""
     key = (year, month)
 
-    # 1. Если есть ручной лимит — используем его
     if key in limits and limits[key].get("total") is not None:
         print(f"📌 Используем ручной лимит: {limits[key]['total']:.2f} руб.")
         return limits[key]["total"]
 
-    # 2. Определяем предыдущий месяц
     if month == 1:
         prev_year = year - 1
         prev_month = 12
@@ -19,13 +13,11 @@ def calculate_rolling_limit(transactions, limits, year, month):
         prev_year = year
         prev_month = month - 1
 
-    # 3. Считаем расходы за предыдущий месяц
     total_expense = 0
     for t in transactions:
         if t.get("year") == prev_year and t.get("month") == prev_month and t.get("type") == "расход":
             total_expense += t.get("amount", 0)
 
-    # 4. Если есть расходы за прошлый месяц — используем их как лимит
     if total_expense > 0:
         print(f"🔄 Скользящий бюджет: лимит на {month}.{year} = {total_expense:.2f} руб.")
         print(f"   (расходы за {prev_month}.{prev_year})")
@@ -35,7 +27,6 @@ def calculate_rolling_limit(transactions, limits, year, month):
         limits[key]["is_manual"] = False
         return total_expense
 
-    # 5. Если нет данных за прошлый месяц — запрашиваем вручную
     print(f"⚠️ Нет данных за прошлый месяц ({prev_month}.{prev_year}).")
     while True:
         try:
@@ -112,25 +103,20 @@ def forecast_balance(transactions, limits, year, month):
 """
 
 
-# analytics.py - ДОБАВИТЬ В КОНЕЦ ФАЙЛА
-
 def close_month(transactions, limits, year, month):
     """
     Закрыть текущий месяц:
     - рассчитать расходы за месяц
     - перенести их как лимит на следующий месяц
     """
-    # 1. Считаем расходы за текущий месяц
     total_expense = 0
     for t in transactions:
         if t.get("year") == year and t.get("month") == month and t.get("type") == "расход":
             total_expense += t.get("amount", 0)
 
-    # 2. Если расходов нет — не закрываем
     if total_expense == 0:
         return "⚠️ Нет расходов за этот месяц. Закрытие невозможно."
 
-    # 3. Определяем следующий месяц
     if month == 12:
         next_year = year + 1
         next_month = 1
@@ -140,22 +126,51 @@ def close_month(transactions, limits, year, month):
 
     key = (next_year, next_month)
 
-    # 4. Устанавливаем лимит на следующий месяц
     if key not in limits:
         limits[key] = {"total": None, "categories": {}, "is_manual": False}
     limits[key]["total"] = total_expense
     limits[key]["is_manual"] = False
 
-    # 5. Сохраняем
     from storage import save_limits
     save_limits(limits)
 
-    # 6. Возвращаем отчёт
     return f"""
 ✅ МЕСЯЦ {month}.{year} ЗАКРЫТ!
 
 📊 Расходы за месяц: {total_expense:.2f} руб.
 🔄 Лимит на {next_month}.{next_year} установлен: {total_expense:.2f} руб.
-
-💡 Совет: переключитесь на следующий месяц, чтобы продолжить работу.
 """
+
+
+
+def check_category_limits(transactions, limits, year, month):
+
+    key = (year, month)
+    warnings = []
+
+    # Если нет лимитов по категориям — возвращаем пустой список
+    if key not in limits or "categories" not in limits[key]:
+        return warnings
+
+    category_limits = limits[key]["categories"]
+
+    # Считаем расходы по категориям за месяц
+    expenses = get_expenses_by_category(transactions, year, month)
+
+    # Проверяем каждую категорию
+    for cat, limit in category_limits.items():
+        spent = expenses.get(cat, 0)
+        if spent > limit:
+            warnings.append(f"🔴 КАТЕГОРИЯ '{cat}': ПРЕВЫШЕНИЕ! Потрачено {spent:.2f} из {limit:.2f} руб.")
+        elif spent >= limit * 0.8:
+            warnings.append(f"🟡 КАТЕГОРИЯ '{cat}': Внимание! Потрачено {spent:.2f} из {limit:.2f} руб. (почти лимит)")
+
+    return warnings
+
+
+def get_category_limit(limits, year, month, category):
+
+    key = (year, month)
+    if key in limits and "categories" in limits[key]:
+        return limits[key]["categories"].get(category)
+    return None
