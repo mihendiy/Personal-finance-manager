@@ -3,7 +3,6 @@ import csv
 
 
 def get_data_path(filename):
-
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
     return os.path.join(project_root, "data", filename)
@@ -12,7 +11,6 @@ def get_data_path(filename):
 # ---------- ТРАНЗАКЦИИ ----------
 
 def load_transactions():
-
     filename = get_data_path("transactions.csv")
     transactions = []
     try:
@@ -33,7 +31,6 @@ def load_transactions():
 
 
 def save_transactions(transactions):
-
     filename = get_data_path("transactions.csv")
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
@@ -47,7 +44,6 @@ def save_transactions(transactions):
 # ---------- КАТЕГОРИИ ----------
 
 def load_categories():
-
     filename = get_data_path("categories.csv")
     categories = {"доход": [], "расход": []}
     try:
@@ -67,7 +63,6 @@ def load_categories():
 
 
 def save_categories(categories):
-
     filename = get_data_path("categories.csv")
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
@@ -82,7 +77,6 @@ def save_categories(categories):
 # ---------- ЛИМИТЫ ----------
 
 def load_limits():
-
     filename = get_data_path("limits.csv")
     limits = {}
     try:
@@ -104,7 +98,6 @@ def load_limits():
 
 
 def save_limits(limits):
-    """Сохранить лимиты в CSV"""
     filename = get_data_path("limits.csv")
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
@@ -128,3 +121,35 @@ def save_limits(limits):
                     "is_manual": "True"
                 })
     print("💾 Лимиты сохранены.")
+
+
+# ---------- КОПИЛКА ----------
+
+def load_piggy_bank():
+    filename = get_data_path("piggy_bank.csv")
+    balance = 0.0
+    try:
+        with open(filename, 'r', encoding='utf-8-sig', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                balance = float(row["balance"])
+        print("🐖 Копилка загружена.")
+    except FileNotFoundError:
+        print("🐖 Файл копилки не найден. Начинаем с 0 руб.")
+        save_piggy_bank(0.0)
+    except Exception as e:
+        print(f"Ошибка загрузки копилки: {e}")
+    return balance
+
+
+def save_piggy_bank(balance):
+    filename = get_data_path("piggy_bank.csv")
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    try:
+        with open(filename, 'w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=["balance"])
+            writer.writeheader()
+            writer.writerow({"balance": balance})
+        print("🐖 Копилка сохранена.")
+    except Exception as e:
+        print(f"Ошибка сохранения копилки: {e}")

@@ -1,5 +1,8 @@
+WARNING_THRESHOLD = 0.8
+CHART_MAX_WIDTH = 30
+
+
 def calculate_rolling_limit(transactions, limits, year, month):
-    """Рассчитать лимит на месяц по принципу скользящего бюджета."""
     key = (year, month)
 
     if key in limits and limits[key].get("total") is not None:
@@ -47,7 +50,6 @@ def calculate_rolling_limit(transactions, limits, year, month):
 
 
 def get_balance(transactions, year, month):
-    """Вернуть доходы, расходы и баланс за указанный месяц"""
     income = 0
     expense = 0
     for t in transactions:
@@ -60,7 +62,6 @@ def get_balance(transactions, year, month):
 
 
 def get_expenses_by_category(transactions, year, month):
-    """Вернуть словарь расходов по категориям за указанный месяц"""
     result = {}
     for t in transactions:
         if t.get("year") == year and t.get("month") == month and t["type"] == "расход":
@@ -70,23 +71,20 @@ def get_expenses_by_category(transactions, year, month):
 
 
 def build_text_chart(transactions, year, month):
-    """Построить текстовую диаграмму расходов за месяц"""
     expenses = get_expenses_by_category(transactions, year, month)
     if not expenses:
         return "Нет расходов за этот месяц."
 
     max_amount = max(expenses.values())
-    max_width = 30
     lines = [f"\n--- Диаграмма расходов за {month}.{year} ---"]
     for cat, amount in sorted(expenses.items(), key=lambda x: x[1], reverse=True):
-        bar_len = int((amount / max_amount) * max_width) if max_amount > 0 else 0
+        bar_len = int((amount / max_amount) * CHART_MAX_WIDTH) if max_amount > 0 else 0
         bar = "█" * bar_len
         lines.append(f"{cat:<15} | {bar} {amount:.2f} руб.")
     return "\n".join(lines)
 
 
 def forecast_balance(transactions, limits, year, month):
-    """Прогноз остатка на конец месяца"""
     key = (year, month)
     monthly_limit = limits.get(key, {}).get("total")
     if monthly_limit is None:
@@ -99,24 +97,33 @@ def forecast_balance(transactions, limits, year, month):
 💰 Лимит месяца: {monthly_limit:.2f} руб.
 💸 Потрачено: {expense:.2f} руб.
 📊 Остаток бюджета: {remaining:.2f} руб.
-📈 Итоговый баланс (с учётом доходов): {balance:.2f} руб.
+📈 Итоговый баланс: {balance:.2f} руб.
 """
 
 
-def close_month(transactions, limits, year, month):
+def close_month_auto(transactions, limits, piggy_balance, year, month):
     """
-    Закрыть текущий месяц:
-    - рассчитать расходы за месяц
-    - перенести их как лимит на следующий месяц
+    Автоматическое закрытие месяца:
+    - остаток (лимит - расходы) переходит в копилку
+    - лимит следующего месяца = расходы этого месяца
     """
+    key = (year, month)
+
+    # 1. Получаем текущий лимит
+    current_limit = limits.get(key, {}).get("total")
+    if current_limit is None:
+        return "⚠️ Лимит на этот месяц не установлен.", piggy_balance
+
+    # 2. Считаем расходы за месяц
     total_expense = 0
     for t in transactions:
         if t.get("year") == year and t.get("month") == month and t.get("type") == "расход":
             total_expense += t.get("amount", 0)
 
-    if total_expense == 0:
-        return "⚠️ Нет расходов за этот месяц. Закрытие невозможно."
+    # 3. Считаем остаток
+    remainder = current_limit - total_expense
 
+    # 4. Определяем следующий месяц
     if month == 12:
         next_year = year + 1
         next_month = 1
@@ -124,52 +131,58 @@ def close_month(transactions, limits, year, month):
         next_year = year
         next_month = month + 1
 
-    key = (next_year, next_month)
+    next_key = (next_year, next_month)
 
-    if key not in limits:
-        limits[key] = {"total": None, "categories": {}, "is_manual": False}
-    limits[key]["total"] = total_expense
-    limits[key]["is_manual"] = False
+    # 5. Устанавливаем лимит на следующий месяц = расходы
+    if next_key not in limits:
+        limits[next_key] = {"total": None, "categories": {}, "is_manual": False}
+    limits[next_key]["total"] = total_expense
+    limits[next_key]["is_manual"] = False
 
+    # 6. Если есть остаток — отправляем в копилку
+    if remainder > 0:
+        piggy_balance += remainder
+        from storage import save_piggy_bank
+        save_piggy_bank(piggy_balance)
+
+    # 7. Сохраняем лимиты
     from storage import save_limits
     save_limits(limits)
 
-    return f"""
+    # 8. Формируем отчёт
+    result = f"""
 ✅ МЕСЯЦ {month}.{year} ЗАКРЫТ!
 
-📊 Расходы за месяц: {total_expense:.2f} руб.
-🔄 Лимит на {next_month}.{next_year} установлен: {total_expense:.2f} руб.
+💰 Лимит месяца: {current_limit:.2f} руб.
+💸 Расходы за месяц: {total_expense:.2f} руб.
+📦 Остаток (перешёл в копилку): {remainder:.2f} руб.
+🏦 В копилке теперь: {piggy_balance:.2f} руб.
+🔄 Новый лимит на {next_month}.{next_year}: {total_expense:.2f} руб.
 """
-
+    return result, piggy_balance
 
 
 def check_category_limits(transactions, limits, year, month):
-
     key = (year, month)
     warnings = []
 
-    # Если нет лимитов по категориям — возвращаем пустой список
     if key not in limits or "categories" not in limits[key]:
         return warnings
 
     category_limits = limits[key]["categories"]
-
-    # Считаем расходы по категориям за месяц
     expenses = get_expenses_by_category(transactions, year, month)
 
-    # Проверяем каждую категорию
     for cat, limit in category_limits.items():
         spent = expenses.get(cat, 0)
         if spent > limit:
             warnings.append(f"🔴 КАТЕГОРИЯ '{cat}': ПРЕВЫШЕНИЕ! Потрачено {spent:.2f} из {limit:.2f} руб.")
-        elif spent >= limit * 0.8:
+        elif spent >= limit * WARNING_THRESHOLD:
             warnings.append(f"🟡 КАТЕГОРИЯ '{cat}': Внимание! Потрачено {spent:.2f} из {limit:.2f} руб. (почти лимит)")
 
     return warnings
 
 
 def get_category_limit(limits, year, month, category):
-
     key = (year, month)
     if key in limits and "categories" in limits[key]:
         return limits[key]["categories"].get(category)
