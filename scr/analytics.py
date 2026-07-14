@@ -104,7 +104,7 @@ def forecast_balance(transactions, limits, year, month):
 def close_month_auto(transactions, limits, piggy_balance, year, month):
     """
     Автоматическое закрытие месяца:
-    - остаток (лимит - расходы) переходит в копилку
+    - остаток = доходы - расходы → переходит в копилку
     - лимит следующего месяца = расходы этого месяца
     """
     key = (year, month)
@@ -114,14 +114,18 @@ def close_month_auto(transactions, limits, piggy_balance, year, month):
     if current_limit is None:
         return "⚠️ Лимит на этот месяц не установлен.", piggy_balance
 
-    # 2. Считаем расходы за месяц
+    # 2. Считаем доходы и расходы за месяц
+    total_income = 0
     total_expense = 0
     for t in transactions:
-        if t.get("year") == year and t.get("month") == month and t.get("type") == "расход":
-            total_expense += t.get("amount", 0)
+        if t.get("year") == year and t.get("month") == month:
+            if t["type"] == "доход":
+                total_income += t["amount"]
+            else:
+                total_expense += t["amount"]
 
-    # 3. Считаем остаток
-    remainder = current_limit - total_expense
+    # 3. Считаем остаток (реальные деньги, которые остались)
+    remainder = total_income - total_expense
 
     # 4. Определяем следующий месяц
     if month == 12:
@@ -154,13 +158,13 @@ def close_month_auto(transactions, limits, piggy_balance, year, month):
 ✅ МЕСЯЦ {month}.{year} ЗАКРЫТ!
 
 💰 Лимит месяца: {current_limit:.2f} руб.
+💵 Доходы за месяц: {total_income:.2f} руб.
 💸 Расходы за месяц: {total_expense:.2f} руб.
-📦 Остаток (перешёл в копилку): {remainder:.2f} руб.
+📦 Остаток (доходы - расходы, перешёл в копилку): {remainder:.2f} руб.
 🏦 В копилке теперь: {piggy_balance:.2f} руб.
 🔄 Новый лимит на {next_month}.{next_year}: {total_expense:.2f} руб.
 """
     return result, piggy_balance
-
 
 def check_category_limits(transactions, limits, year, month):
     key = (year, month)

@@ -15,8 +15,10 @@ from analytics import (
     get_category_limit
 )
 
+# Доступные года для работы
 YEARS = [2026, 2027]
 
+# Глобальные переменные для хранения данных в памяти
 transactions = []
 categories = {}
 limits = {}
@@ -81,6 +83,7 @@ def choose_month():
             return
         elif choice in [str(i) for i in range(1, 13)]:
             current_month = int(choice)
+            # При выборе месяца автоматически рассчитывается лимит
             monthly_limit = calculate_rolling_limit(transactions, limits, current_year, current_month)
             print(f"📊 Лимит на {current_month}.{current_year}: {monthly_limit:.2f} руб.")
             work_with_month()
@@ -111,7 +114,7 @@ def show_menu():
     print("  9.  Проверить лимиты по категориям")
 
     print("\n🏦 КОПИЛКА")
-    print("  10. Показать / пополнить / снять")
+    print(f"  10. Показать / пополнить / снять (🐖 {piggy_balance:.2f} руб.)")
 
     print("\n📦 ЗАКРЫТИЕ")
     print("  11. Закрыть месяц")
@@ -122,6 +125,7 @@ def show_menu():
 
 def work_with_month():
     global piggy_balance
+    # Загружаем состояние копилки при входе в месяц
     piggy_balance = load_piggy_bank()
 
     while True:
@@ -142,7 +146,7 @@ def work_with_month():
         elif choice == "7":
             check_limits()
         elif choice == "8":
-            set_category_limit()
+            fast_add_limits()
         elif choice == "9":
             check_category_limits_wrapper()
         elif choice == "10":
@@ -187,6 +191,7 @@ def piggy_bank_menu():
 # ---------- ТРАНЗАКЦИИ ----------
 
 def add_transaction():
+    """Добавление одной или нескольких транзакций с возможностью продолжения"""
     global transactions, current_year, current_month
     print("\n--- Добавление транзакций ---")
 
@@ -211,6 +216,7 @@ def add_transaction():
             print("Введите 'доход' или 'расход'")
             trans_type = input("Тип (доход/расход): ").lower()
 
+        # Если категория новая — добавляем в список
         if category not in categories.get(trans_type, []):
             print(f"🆕 Добавлена новая категория: '{category}'")
             categories[trans_type].append(category)
@@ -234,6 +240,7 @@ def add_transaction():
 
 
 def show_all_transactions():
+    """Показать все транзакции за выбранный месяц"""
     print(f"\n--- Все транзакции за {current_month}.{current_year} ---")
     filtered = [t for t in transactions if t.get("year") == current_year and t.get("month") == current_month]
     if not filtered:
@@ -246,6 +253,7 @@ def show_all_transactions():
 
 
 def show_balance():
+    """Показать баланс за текущий месяц"""
     income, expense, balance = get_balance(transactions, current_year, current_month)
     print(f"\n--- Баланс за {current_month}.{current_year} ---")
     print(f"💰 Доходы: {income:.2f} руб.")
@@ -254,16 +262,19 @@ def show_balance():
 
 
 def show_chart():
+    """Вывод текстовой диаграммы расходов"""
     print(build_text_chart(transactions, current_year, current_month))
 
 
 def show_forecast():
+    """Прогноз остатка на конец месяца"""
     print(forecast_balance(transactions, limits, current_year, current_month))
 
 
 # ---------- ЛИМИТЫ ----------
 
 def set_monthly_limit():
+    """Установка общего лимита на месяц"""
     global limits
     key = (current_year, current_month)
     try:
@@ -283,6 +294,7 @@ def set_monthly_limit():
 
 
 def check_limits():
+    """Проверка общего лимита с цветовым предупреждением"""
     key = (current_year, current_month)
     limit = limits.get(key, {}).get("total")
     if limit is None:
@@ -304,47 +316,68 @@ def check_limits():
 
 # ---------- ЛИМИТЫ ПО КАТЕГОРИЯМ ----------
 
-def set_category_limit():
+def fast_add_limits():
+    """Быстрое добавление лимитов на несколько категорий за один раз"""
     global limits
     key = (current_year, current_month)
 
-    print(f"\n--- Установка лимита на категорию ({current_month}.{current_year}) ---")
+    print("\n" + "=" * 50)
+    print("⚡ БЫСТРОЕ ДОБАВЛЕНИЕ ЛИМИТОВ")
+    print("=" * 50)
 
     expense_categories = categories.get("расход", [])
     if not expense_categories:
-        print("⚠️ Нет категорий расходов.")
+        print("⚠️ Нет категорий расходов. Сначала добавьте категории через транзакции.")
         return
+    print(f"📂 Доступные категории: {', '.join(expense_categories)}")
+    print("-" * 50)
 
-    print(f"📂 Доступные категории расходов: {', '.join(expense_categories)}")
+    count = 0
+    while True:
+        print("\n--- Новый лимит ---")
+        category = input("Введите категорию (или 0 для выхода): ").strip().lower()
 
-    category = input("Введите название категории: ").strip().lower()
+        if category == "0":
+            break
 
-    if category not in expense_categories:
-        print(f"⚠️ Категория '{category}' не найдена в списке расходов.")
-        return
+        if not category:
+            print("❌ Категория не может быть пустой.")
+            continue
 
-    current_limit = get_category_limit(limits, current_year, current_month, category)
-    if current_limit is not None:
-        print(f"📌 Текущий лимит на '{category}': {current_limit:.2f} руб.")
+        if category not in expense_categories:
+            print(f"❌ Категория '{category}' не найдена.")
+            print(f"   Доступны: {', '.join(expense_categories)}")
+            continue
 
-    try:
-        limit = float(input(f"Введите лимит на категорию '{category}' (в рублях): "))
-        if limit < 0:
-            print("Лимит не может быть отрицательным.")
-            return
-    except ValueError:
-        print("Ошибка! Введите число.")
-        return
+        try:
+            limit = float(input(f"Введите лимит на '{category}' (в рублях): "))
+            if limit < 0:
+                print("❌ Лимит не может быть отрицательным!")
+                continue
+        except ValueError:
+            print("❌ Ошибка! Введите число.")
+            continue
 
-    if key not in limits:
-        limits[key] = {"total": None, "categories": {}, "is_manual": False}
-    limits[key]["categories"][category] = limit
+        if key not in limits:
+            limits[key] = {"total": None, "categories": {}, "is_manual": False}
+        limits[key]["categories"][category] = limit
 
-    save_limits(limits)
-    print(f"✅ Лимит на категорию '{category}' установлен: {limit:.2f} руб.")
+        count += 1
+        print(f"✅ Лимит на '{category}' установлен: {limit:.2f} руб.")
+
+        more = input("\nДобавить ещё лимит? (да/нет): ").lower()
+        if more != "да":
+            break
+
+    if count > 0:
+        save_limits(limits)
+        print(f"\n✅ Добавлено {count} лимитов. Все сохранены!")
+    else:
+        print("\n❌ Ни одного лимита не добавлено.")
 
 
 def check_category_limits_wrapper():
+    """Проверка лимитов по категориям с отображением статуса"""
     print(f"\n--- Проверка лимитов по категориям за {current_month}.{current_year} ---")
 
     warnings = check_category_limits(transactions, limits, current_year, current_month)
@@ -369,40 +402,41 @@ def check_category_limits_wrapper():
 # ---------- ЗАКРЫТИЕ МЕСЯЦА ----------
 
 def close_current_month():
+    """
+    Закрытие месяца с автоматическим переносом остатка в копилку.
+    Остаток = доходы - расходы
+    """
     global limits, piggy_balance
     print("\n" + "=" * 50)
     print("📦 ЗАКРЫТИЕ МЕСЯЦА")
     print("=" * 50)
 
-    # Проверяем, есть ли транзакции
     count = sum(1 for t in transactions if t.get("year") == current_year and t.get("month") == current_month)
     if count == 0:
         print("⚠️ Нет транзакций за этот месяц. Закрытие невозможно.")
         return
 
-    # Проверяем, установлен ли лимит
     key = (current_year, current_month)
     if limits.get(key, {}).get("total") is None:
         print("⚠️ Лимит на этот месяц не установлен. Сначала установите лимит.")
         return
 
-    # Подтверждение
     confirm = input(f"Вы действительно хотите закрыть {current_month}.{current_year}? (да/нет): ").lower()
     if confirm != "да":
         print("❌ Закрытие отменено.")
         return
 
-    # Автоматическое закрытие
     result, piggy_balance = close_month_auto(
         transactions, limits, piggy_balance, current_year, current_month
     )
     print(result)
+    save_piggy_bank(piggy_balance)
 
 
 # ---------- КОПИЛКА ----------
 
 def add_to_piggy():
-    """Положить деньги в копилку (списывая с текущего баланса)"""
+    """Пополнение копилки с проверкой наличия средств на балансе"""
     global piggy_balance, transactions, current_year, current_month
 
     print("\n" + "=" * 50)
@@ -457,7 +491,7 @@ def add_to_piggy():
 
 
 def take_from_piggy():
-    """Взять деньги из копилки (добавляя к балансу)"""
+    """Снятие денег из копилки с добавлением к балансу"""
     global piggy_balance, transactions, current_year, current_month
 
     print("\n" + "=" * 50)
