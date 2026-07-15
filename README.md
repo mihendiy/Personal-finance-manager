@@ -44,7 +44,7 @@ finance-manager/
 git clone https://github.com/mihendiy/Personal-finance-manager.git
 
 # 2.Зайти в директорию с проектом
-cd finance-manager
+cd Personal-finance-manager
 
 # 3. Установить зависимости
 pip install -r requirements.txt
