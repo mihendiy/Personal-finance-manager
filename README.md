@@ -14,68 +14,64 @@
 ---
 
 ## Структура репозитория
-.
+
+```
+finance-manager/
 ├── src/
-│ ├── init.py
-│ ├── main.py 
-│ ├── storage.py 
-│ └── analytics.py 
+│   ├── __init__.py
+│   ├── main.py             # точка входа, CLI-меню
+│   ├── storage.py          # работа с CSV-файлами
+│   └── analytics.py        # алгоритмическое ядро
 ├── tests/
-│ ├── init.py
-│ ├── test_analytics.py 
-│ └── test_integration.py 
+│   ├── __init__.py
+│   ├── test_analytics.py   # юнит-тесты алгоритмов
+│   └── test_integration.py # интеграционные тесты
 ├── data/
-│ ├── transactions.csv 
-│ ├── categories.csv 
-│ ├── limits.csv 
-│ └── piggy_bank.csv 
+│   ├── transactions.csv
+│   ├── categories.csv
+│   ├── limits.csv
+│   └── piggy_bank.csv
 ├── Dockerfile
 ├── .gitignore
 ├── requirements.txt
 ├── LICENSE
 └── README.md
-
-text
-
----
-
+```
 ## Установка и запуск
-
 ### Локально
-
-```bash
+```
 # 1. Клонировать репозиторий
-git clone https://github.com/mihendiy/finance-manager.git
+git clone https://github.com/mihendiy/Personal-finance-manager.git
+
+# 2.Зайти в директорию с проектом
 cd finance-manager
 
-# 2. Установить зависимости
+# 3. Установить зависимости
 pip install -r requirements.txt
 
 # 3. Запустить
 python src/main.py
-В Docker
-bash
-# Собрать образ
+```
+### В Docker 
+```
+1. Собрать образ
 docker build -t finance-manager .
 
-# Запустить
+# 2. Запустить
 docker run --rm finance-manager
 
-# Запустить с монтированием папки data (для сохранения данных)
+# 3. Запустить с монтированием папки data (для сохранения изменений в файлах данных)
 docker run --rm -v "$(pwd)/data:/app/data" finance-manager
-Параметры запуска
-Параметр	Описание	По умолчанию
-—	Программа запускается без аргументов командной строки	—
-Запуск тестов
-bash
-python -m pytest tests/ -v
-Ожидаемый результат:
+```
+## Запуск тестов
 
-text
-tests/test_analytics.py ............ [70%]
-tests/test_integration.py ....      [100%]
-==================== 17 passed in 0.08s ====================
-Зависимости
+---
+```
+python -m pytest tests/ -v
+```
+## Зависимости
+
+---
 Python ≥ 3.10
 
 pytest == 7.4.0
