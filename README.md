@@ -58,10 +58,10 @@ python src/main.py
 docker build -t finance-manager .
 
 # 2. Запустить
-docker run --rm finance-manager
+docker run -it --rm finance-manager
 
 # 3. Запустить с монтированием папки data (для сохранения изменений в файлах данных)
-docker run --rm -v "$(pwd)/data:/app/data" finance-manager
+docker docker run -it --rm -v "%cd%/data:/app/data" finance-manager
 ```
 ## Запуск тестов
 
