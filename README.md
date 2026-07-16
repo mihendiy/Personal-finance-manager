@@ -61,7 +61,7 @@ docker build -t finance-manager .
 docker run -it --rm finance-manager
 
 # 3. Запустить с монтированием папки data (для сохранения изменений в файлах данных)
-docker docker run -it --rm -v "%cd%/data:/app/data" finance-manager
+docker run -it --rm -v "%cd%/data:/app/data" finance-manager
 ```
 ## Запуск тестов
 
